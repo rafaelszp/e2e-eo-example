@@ -1,0 +1,19 @@
+services:
+
+    rabbitmq:
+        image: rabbitmq:3-management
+        hostname: my-rabbit
+        container_name: rabbitmq
+        environment:
+          RABBITMQ_DEFAULT_USER: user
+          RABBITMQ_DEFAULT_PASS: password
+        ports:
+        - "5672:5672"
+        - "15672:15672"
+
+    hdfs:
+        image: dockerq/docker-hdfs
+        container_name: hdfs
+        network_mode: host
+        volumes:
+        - ./data:/hdfsdata
