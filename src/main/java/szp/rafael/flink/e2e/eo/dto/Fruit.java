@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class Fruit {
+    private Long id;
     private String name;
     private Double weight;
 }

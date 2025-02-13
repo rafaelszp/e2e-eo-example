@@ -15,6 +15,7 @@ public class FruitFactory {
         String fruitName = faker.food().fruit();
         var fruit = new Fruit();
         fruit.setName(fruitName);
+        fruit.setId(faker.number().randomNumber());
         BigDecimal weight = new BigDecimal(new SecureRandom().nextDouble(0.1, 10.0)).setScale(2, RoundingMode.HALF_EVEN);
         fruit.setWeight(weight.doubleValue());
         return fruit;

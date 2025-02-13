@@ -81,7 +81,10 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     @Override
     public CompletableFuture<Void> isAvailable() {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        return elementsQueue.getAvailabilityFuture().thenAccept(future::complete);
+        return elementsQueue.getAvailabilityFuture().thenAccept(e->{
+            LOG.info("################################################## reader {} - IS AVAILABLE: {}", readerId, e);
+            future.complete(e);
+        });
     }
 
     @Override
