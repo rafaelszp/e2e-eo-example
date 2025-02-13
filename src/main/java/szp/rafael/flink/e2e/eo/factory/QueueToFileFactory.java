@@ -5,6 +5,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExternalizedCheckpointRetention;
 import org.apache.flink.configuration.RestartStrategyOptions;
+import org.apache.flink.configuration.StateBackendOptions;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
@@ -30,8 +31,10 @@ public class QueueToFileFactory {
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
 
         config.set(CheckpointingOptions.CHECKPOINT_STORAGE, "filesystem");
-        config.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, "hdfs:///localhost:9000/");
+        config.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, "hdfs://localhost:9000/checkpoints");
         config.set(CheckpointingOptions.FS_WRITE_BUFFER_SIZE, 1024);
+        config.set(StateBackendOptions.STATE_BACKEND, "rocksdb");
+
 
         if(!params.has("production")){
             config.setString("taskmanager.memory.network.max", "1gb");
