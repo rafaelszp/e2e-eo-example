@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class RMQReader implements SourceReader<String, RMQSplit> {
 
@@ -37,6 +38,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     private AMQP.Queue.DeclareOk declareOk;
     private String consumerTag;
     private int readerId;
+    private AtomicLong readMessages = new AtomicLong(0);
 
 
     public RMQReader(SourceReaderContext sourceReaderContext, Properties properties, int readerId) {
@@ -53,7 +55,6 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     @Override
     public void start() {
         LOG.info("################################################## STARTING READER {}", readerId);
-
     }
 
     @Override
@@ -61,16 +62,56 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
         if (currentSplit == null) {
             return InputStatus.NOTHING_AVAILABLE;
         }
-        Tuple3<Long, String, String> element = elementsQueue.poll();
+        Tuple3<Long, String, String> element = elementsQueue.peek();
         if (element != null) {
-            currentSplit.setLastDeliveryTag(element.f0);
-            currentSplit.setLastMessageId(element.f1);
-            readerOutput.collect(element.f2);
-            channel.basicAck(element.f0, false);
-            LOG.info("################################################## reader {} - Collected: {}", readerId, element);
+
+            try {
+                if (element.f1.equals(currentSplit.getLastMessageId())) {
+                    LOG.info("**************************************************************** Skipping already collected message {}", currentSplit.toJson());
+                } else {
+                    readerOutput.collect(element.f2);
+                    LOG.info("################################################## reader {} - Collected: {} - read by this split {}", readerId, element, readMessages);
+                }
+                currentSplit.setLastMessageId(element.f1);
+                simulateError();
+                channel.basicAck(currentSplit.getLastDeliveryTag(), false);
+                currentSplit.setLastDeliveryTag(element.f0);
+                elementsQueue.poll();
+                LOG.info("################################################## reader {} - Acked: {} - read by this split {}", readerId, element, readMessages);
+            } catch (Exception e) {
+                LOG.warn("\n---------------------------------------------------------------------------------------------------------------------------------------------------");
+                LOG.warn("Error simulation, what is going to happen? elmnt:{}", element);
+                LOG.warn("Error simulation, what is going to happen? split: {}", currentSplit.toJson());
+                LOG.warn("---------------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+            }
             return InputStatus.MORE_AVAILABLE;
         }
         return InputStatus.NOTHING_AVAILABLE;
+    }
+
+    private DeliverCallback deliverCallback() throws IOException {
+
+        return (consumerTag, delivery) -> {
+            try {
+                String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                LOG.info(" [x] Received '{}'", message);
+                Tuple3<Long, String, String> element = new Tuple3<>(delivery.getEnvelope().getDeliveryTag(), delivery.getProperties().getMessageId(), message);
+                elementsQueue.put(context.getIndexOfSubtask(), element);
+                readMessages.incrementAndGet();
+            } catch (Exception e) {
+                closeChannel();
+                prepareConsumer();
+            }
+        };
+    }
+
+    private void simulateError() {
+        boolean error = new SecureRandom().nextBoolean() && readMessages.get() > 5;
+        error &= System.currentTimeMillis() % 2 == 0;
+        if (error) {
+            throw new RuntimeException("Simulating error. Read Messages: " + readMessages);
+        }
     }
 
     @Override
@@ -81,7 +122,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     @Override
     public CompletableFuture<Void> isAvailable() {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        return elementsQueue.getAvailabilityFuture().thenAccept(e->{
+        return elementsQueue.getAvailabilityFuture().thenAccept(e -> {
             LOG.info("################################################## reader {} - IS AVAILABLE: {}", readerId, e);
             future.complete(e);
         });
@@ -103,7 +144,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
 
     @Override
     public void close() throws Exception {
-        LOG.warn("################################################## CLOSING READER: {}" , readerId);
+        LOG.warn("################################################## CLOSING READER: {}", readerId);
         closeChannel();
     }
 
@@ -117,12 +158,11 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
                 factory.setPassword(password);
                 Connection connection = factory.newConnection();
                 channel = connection.createChannel();
-                channel.basicQos(1);
+                channel.basicQos(0); //Quantos nack suportados? https://www.rabbitmq.com/docs/consumer-prefetch
 
                 declareOk = channel.queueDeclare(currentSplit.splitId(), false, false, false, null);
                 consumerTag = channel.basicConsume(currentSplit.splitId(), false, deliverCallback(), consumerTag -> {
                     LOG.info("Consumer {} cancelled", consumerTag);
-                    closeChannel();
                 });
             }
         } catch (Exception e) {
@@ -133,25 +173,16 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     private void closeChannel() throws IOException {
         LOG.info("################################################## reader {} - CLOSING CHANNEL", readerId);
         try {
+            declareOk = null;
+            consumerTag = null;
             if (channel != null && channel.isOpen()) {
                 channel.close();
+                channel = null;
             }
         } catch (TimeoutException e) {
             LOG.warn("Error closing channel", e);
         }
     }
 
-    private DeliverCallback deliverCallback() throws IOException {
 
-        return (consumerTag, delivery) -> {
-            try {
-                String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
-                LOG.info(" [x] Received '{}'", message);
-                Tuple3<Long, String, String> element = new Tuple3<>(delivery.getEnvelope().getDeliveryTag(), delivery.getProperties().getMessageId(), message);
-                elementsQueue.put(context.getIndexOfSubtask(), element);
-            } catch (InterruptedException e) {
-                throw new RuntimeException("Error putting element in queue", e);
-            }
-        };
-    }
 }

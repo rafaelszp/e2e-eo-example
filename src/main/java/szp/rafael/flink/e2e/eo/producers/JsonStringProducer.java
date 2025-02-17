@@ -30,14 +30,17 @@ public class JsonStringProducer {
         try (Connection connection = factory.newConnection();
              Channel channel = connection.createChannel()) {
             channel.queueDeclare(QUEUE_NAME, false, false, false, null);
-            for(int i = 0; i < 10; i++) {
+            for(long i = 0; i < 40_000; i++) {
                 Fruit fruit = FruitFactory.createFruit();
+                fruit.setId(i);
                 String message = JSON.toJSONString(fruit);
-                AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId(fruit.getName())
+                AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
+                        .correlationId(fruit.getName())
                         .messageId(fruit.getId().toString())
                         .build();
                 channel.basicPublish("", QUEUE_NAME, properties, message.getBytes());
                 logger.info(" [x] Sent '" + message + "'");
+                Thread.sleep(2000);
             }
         }
     }

@@ -11,17 +11,19 @@ docker exec -it hdfs hdfs dfs -chown $USER /checkpoints
 
 ```
 
-
 ## TODO
 
 - [ ] Gerar Fluxo e2e EO com
     - [x] custom source baseado em rabbitmq
+    - [ ] simular recuperação de mensagens quando há erro no SourceReader
+      - Será que preciso fazer Nack?
+      - Como resolver os erros de unknown delivery tags?
     - [ ] processor com random error
     - [ ] sink em arquivo, modelo append, ou até mesmo outra fila rabbitmq
-    - [x] checkpoints com rocksdb
+    - [x] checkpoints com hdfs
+    - [x] state backend com rocks db
+    - [ ] verificar rocksdb + hdfs
     - [ ] hdfs baseado em docker para simular checkpoint state distribuído
-    - [ ] simular recuperação de mensagens quando há erro no SourceReader 
-
 
 ### references
 
