@@ -34,13 +34,13 @@ public class RMQSource implements Source<String, RMQSplit, Set<RMQSplit>> {
 
     @Override
     public SplitEnumerator<RMQSplit, Set<RMQSplit>> createEnumerator(SplitEnumeratorContext<RMQSplit> splitEnumeratorContext) throws Exception {
-        LOG.info("######################################## Creating enumerator");
+        LOG.debug("######################################## Creating enumerator");
         return new RMQEnumerator(splitEnumeratorContext,properties);
     }
 
     @Override
     public SplitEnumerator<RMQSplit, Set<RMQSplit>> restoreEnumerator(SplitEnumeratorContext<RMQSplit> splitEnumeratorContext, Set<RMQSplit> rmqSplitSet) throws Exception {
-        LOG.info("######################################## Restoring enumerator");
+        LOG.debug("######################################## Restoring enumerator");
         return new RMQEnumerator(splitEnumeratorContext,properties);
     }
 
@@ -56,7 +56,7 @@ public class RMQSource implements Source<String, RMQSplit, Set<RMQSplit>> {
 
     @Override
     public SourceReader<String, RMQSplit> createReader(SourceReaderContext sourceReaderContext) throws Exception {
-        LOG.info("######################################## Creating Reader: {}", RMQSource.readerId.incrementAndGet());
+        LOG.debug("######################################## Creating Reader: {}", RMQSource.readerId.incrementAndGet());
         return new RMQReader(sourceReaderContext, properties,readerId.get());
     }
 }

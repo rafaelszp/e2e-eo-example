@@ -19,6 +19,8 @@ docker exec -it hdfs hdfs dfs -chown $USER /checkpoints
       - Será que preciso fazer Nack?
       - Como resolver os erros de unknown delivery tags?
     - [ ] processor com random error
+      - Usar a estratégia de sideoutputs para jogar em uma stream de erros
+      - A partir da stream de erros, fazer a sink com delay para o rabbitmq
     - [ ] sink em arquivo, modelo append, ou até mesmo outra fila rabbitmq
     - [x] checkpoints com hdfs
     - [x] state backend com rocks db
@@ -34,3 +36,4 @@ docker exec -it hdfs hdfs dfs -chown $USER /checkpoints
 - https://medium.com/@ahmetcanozturk1996/setting-up-a-hdfs-cluster-on-docker-a-practical-guide-cc13fa42ca52
 - https://stackoverflow.com/a/71322538
 - https://community.cloudera.com/t5/Support-Questions/Permission-denied-user-ABC-access-WRITE-inode-quot-user-quot/m-p/90922
+- https://nightlies.apache.org/flink/flink-docs-release-1.20/docs/dev/datastream/side_output/

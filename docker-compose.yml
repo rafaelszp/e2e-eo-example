@@ -1,7 +1,10 @@
 services:
 
     rabbitmq:
-        image: rabbitmq:3-management
+        build:
+            context: ./docker/rabbitmq
+            dockerfile: Dockerfile
+        # image: rabbitmq:4-management
         hostname: my-rabbit
         container_name: rabbitmq
         environment:

@@ -34,10 +34,16 @@
         <Logger name="org.apache.flink.runtime.executiongraph" level="WARN" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
-        <Logger name="org.apache.flink.runtime.resourcemanager.slotmanager" level="warn" additivity="false">
+        <Logger name="org.apache.flink.runtime.resourcemanager.slotmanager" level="WARN" additivity="false">
             <AppenderRef ref="Console"/>
         </Logger>
-        <Root level="INFO">
+        <Logger name="org.apache.flink.runtime.*" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="szp.rafael.flink.e2e.eo" level="INFO" additivity="false">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="WARN">
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

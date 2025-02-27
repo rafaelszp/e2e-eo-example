@@ -54,7 +54,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
 
     @Override
     public void start() {
-        LOG.info("################################################## STARTING READER {}", readerId);
+        LOG.debug("################################################## STARTING READER {}", readerId);
     }
 
     @Override
@@ -70,18 +70,23 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
                     LOG.info("**************************************************************** Skipping already collected message {}", currentSplit.toJson());
                 } else {
                     readerOutput.collect(element.f2);
-                    LOG.info("################################################## reader {} - Collected: {} - read by this split {}", readerId, element, readMessages);
+                    LOG.debug("################################################## reader {} - Collected: {} - read by this split {}", readerId, element, readMessages);
                 }
                 currentSplit.setLastMessageId(element.f1);
-                simulateError();
-                channel.basicAck(currentSplit.getLastDeliveryTag(), false);
+                simulateError(true);
+//                channel.basicAck(currentSplit.getLastDeliveryTag(), false);
+                channel.basicAck(element.f0, false);
                 currentSplit.setLastDeliveryTag(element.f0);
                 elementsQueue.poll();
-                LOG.info("################################################## reader {} - Acked: {} - read by this split {}", readerId, element, readMessages);
+                LOG.debug("################################################## reader {} - Acked: {} - read by this split {}", readerId, element, readMessages);
+            }catch(com.rabbitmq.client.AlreadyClosedException e){
+                LOG.warn("Message Already Acked: {}", element);
+                elementsQueue.poll();
             } catch (Exception e) {
                 LOG.warn("\n---------------------------------------------------------------------------------------------------------------------------------------------------");
                 LOG.warn("Error simulation, what is going to happen? elmnt:{}", element);
                 LOG.warn("Error simulation, what is going to happen? split: {}", currentSplit.toJson());
+                LOG.warn("Exception class: {}. Message {}",e.getClass().getName(),e.getMessage());
                 LOG.warn("---------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
             }
@@ -95,7 +100,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
         return (consumerTag, delivery) -> {
             try {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
-                LOG.info(" [x] Received '{}'", message);
+                LOG.debug(" [x] Received '{}'", message);
                 Tuple3<Long, String, String> element = new Tuple3<>(delivery.getEnvelope().getDeliveryTag(), delivery.getProperties().getMessageId(), message);
                 elementsQueue.put(context.getIndexOfSubtask(), element);
                 readMessages.incrementAndGet();
@@ -106,7 +111,8 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
         };
     }
 
-    private void simulateError() {
+    private void simulateError(boolean active) {
+        if(!active) return;
         boolean error = new SecureRandom().nextBoolean() && readMessages.get() > 5;
         error &= System.currentTimeMillis() % 2 == 0;
         if (error) {
@@ -123,7 +129,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     public CompletableFuture<Void> isAvailable() {
         CompletableFuture<Void> future = new CompletableFuture<>();
         return elementsQueue.getAvailabilityFuture().thenAccept(e -> {
-            LOG.info("################################################## reader {} - IS AVAILABLE: {}", readerId, e);
+            LOG.debug("################################################## reader {} - IS AVAILABLE: {}", readerId, e);
             future.complete(e);
         });
     }
@@ -132,26 +138,26 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     public void addSplits(List<RMQSplit> list) {
         if (!list.isEmpty()) {
             this.currentSplit = list.get(0);
-            LOG.info("################################################## reader {} - ADDING SPLIT: {}", readerId, currentSplit.toJson());
+            LOG.debug("################################################## reader {} - ADDING SPLIT: {}", readerId, currentSplit.toJson());
             prepareConsumer();
         }
     }
 
     @Override
     public void notifyNoMoreSplits() {
-        LOG.info("################################################## reader {} - NO MORE SPLITS", readerId);
+        LOG.debug("################################################## reader {} - NO MORE SPLITS", readerId);
     }
 
     @Override
     public void close() throws Exception {
-        LOG.warn("################################################## CLOSING READER: {}", readerId);
+        LOG.debug("################################################## CLOSING READER: {}", readerId);
         closeChannel();
     }
 
     public void prepareConsumer() {
         try {
             if (currentSplit != null && declareOk == null && consumerTag == null) {
-                LOG.info("################################################## reader {} - PREPARING CONSUMER {}", readerId, currentSplit.toJson());
+                LOG.debug("################################################## reader {} - PREPARING CONSUMER {}", readerId, currentSplit.toJson());
                 ConnectionFactory factory = new ConnectionFactory();
                 factory.setHost(host);
                 factory.setUsername(username);
@@ -162,7 +168,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
 
                 declareOk = channel.queueDeclare(currentSplit.splitId(), false, false, false, null);
                 consumerTag = channel.basicConsume(currentSplit.splitId(), false, deliverCallback(), consumerTag -> {
-                    LOG.info("Consumer {} cancelled", consumerTag);
+                    LOG.debug("Consumer {} cancelled", consumerTag);
                 });
             }
         } catch (Exception e) {
@@ -171,7 +177,7 @@ public class RMQReader implements SourceReader<String, RMQSplit> {
     }
 
     private void closeChannel() throws IOException {
-        LOG.info("################################################## reader {} - CLOSING CHANNEL", readerId);
+        LOG.debug("################################################## reader {} - CLOSING CHANNEL", readerId);
         try {
             declareOk = null;
             consumerTag = null;
